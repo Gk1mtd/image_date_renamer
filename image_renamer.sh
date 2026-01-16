@@ -23,7 +23,7 @@ function chooseMode() {
 # Prompt user to select the folder using Zenity
 function chooseFolder() {
   photos_folder=$(zenity --file-selection --directory --title="Select Photos Folder")
-  echo $photos_folder
+  echo "$photos_folder"
   # Check if the user canceled folder selection
   if [[ -z "$photos_folder" ]]; then
     echo "Folder selection canceled."
@@ -62,8 +62,8 @@ function extractDateFromFilename() {
   elif [[ "$filename" =~ (IMG|VID)-([0-9]{8}) ]]; then
     local date_part="${BASH_REMATCH[2]}"
     date_string="${date_part:0:4}-${date_part:4:2}-${date_part:6:2}"
-  # Pattern 3: Pxl YYYYMMDD HHMMSS (e.g., Pxl 20210815 155658793.m4v)
-  elif [[ "$filename" =~ [Pp]xl[[:space:]]([0-9]{8})[[:space:]]([0-9]{6}) ]]; then
+  # Pattern 3: Pxl YYYYMMDD HHMMSS (e.g., Pxl 20210815 155658793.m4v - captures first 6 digits of time)
+  elif [[ "$filename" =~ [Pp]xl[[:space:]]([0-9]{8})[[:space:]]([0-9]{6,}) ]]; then
     local date_part="${BASH_REMATCH[1]}"
     local time_part="${BASH_REMATCH[2]}"
     date_string="${date_part:0:4}-${date_part:4:2}-${date_part:6:2} ${time_part:0:2}:${time_part:2:2}:${time_part:4:2}"
@@ -147,11 +147,7 @@ function renamingFiles() {
 # Extract the file extension
 function extractFileExtension() {
   file_extension="${1##*.}"
-
-  # Check if the file is a media file and store the postfix in a variable
-  if [[ "$1" == *.jpg || "$1" == *.jpeg || "$1" == *.png || "$1" == *.m4v || "$1" == *.mp4 ]]; then
-    postfix="$file_extension"
-  fi
+  postfix="$file_extension"
 }
 
 # Display a message when the script is done
