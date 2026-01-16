@@ -39,6 +39,15 @@ function goToPhotosFolder() {
   cd "$photos_folder" || exit
 }
 
+# Check if file is a supported media file
+function isSupportedMediaFile() {
+  local file="$1"
+  if [[ -f "$file" && ( "$file" == *.jpg || "$file" == *.jpeg || "$file" == *.png || "$file" == *.m4v || "$file" == *.mp4 ) ]]; then
+    return 0
+  fi
+  return 1
+}
+
 # Extract date from filename using various patterns
 function extractDateFromFilename() {
   local filename="$1"
@@ -82,33 +91,32 @@ function extractDateFromFilename() {
 # Update file creation date from filename
 function updateFileDates() {
   local updated_count=0
+  local skipped_count=0
   for file in *; do
-    # Check if the file is a media file
-    if [[ "$file" == *.jpg || "$file" == *.jpeg || "$file" == *.png || "$file" == *.m4v || "$file" == *.mp4 ]]; then
+    if isSupportedMediaFile "$file"; then
       date_string=$(extractDateFromFilename "$file")
       
       if [[ -n "$date_string" ]]; then
         # Update file modification and access time
-        touch -d "$date_string" "$file" 2>/dev/null
-        if [[ $? -eq 0 ]]; then
+        if touch -d "$date_string" "$file" 2>/dev/null; then
           echo "Updated $file to $date_string"
           ((updated_count++))
         else
-          echo "Failed to update $file (invalid date: $date_string)"
+          echo "Warning: Failed to update $file - invalid date format: $date_string"
         fi
       else
-        echo "No date found in filename: $file"
+        echo "Skipped $file - no date pattern found"
+        ((skipped_count++))
       fi
     fi
   done
-  echo "Updated $updated_count file(s)"
+  echo "Updated $updated_count file(s), skipped $skipped_count file(s)"
 }
 
 # Loop through each file in the folder
 function renamingFiles() {
   for file in *; do
-    # Check if the file is a photo (you can modify the condition as per your requirements)
-    if [[ "$file" == *.jpg || "$file" == *.jpeg || "$file" == *.png || "$file" == *.m4v || "$file" == *.mp4 ]]; then
+    if isSupportedMediaFile "$file"; then
       extractFileExtension "$file"
 
       # Get the creation timestamp of the file
