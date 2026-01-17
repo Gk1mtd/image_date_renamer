@@ -1,169 +1,202 @@
 #!/bin/bash
 
-# Prompt user to select the mode using Zenity
-function chooseMode() {
+# Don't exit on errors - handle them gracefully instead
+# set -e
+
+#####################################
+# Dependency checks
+#####################################
+
+echo "[*] Checking dependencies..."
+command -v zenity >/dev/null || { echo "[!] zenity is missing"; exit 1; }
+command -v exiftool >/dev/null || { echo "[!] exiftool is missing"; exit 1; }
+echo "[✓] All dependencies found"
+
+#####################################
+# Configuration
+#####################################
+
+SUPPORTED_EXTENSIONS="jpg|jpeg|png|mp4|m4v"
+
+#####################################
+# UI
+#####################################
+
+chooseMode() {
+  echo "[*] Showing mode selection dialog..." >&2
   mode=$(zenity --list \
     --title="Select Mode" \
     --text="Choose operation mode:" \
     --radiolist \
     --column="Select" --column="Mode" --column="Description" \
-    TRUE "rename" "Rename files by creation date" \
-    FALSE "update" "Update file creation date from filename" \
+    TRUE "rename" "Rename files by EXIF creation date" \
+    FALSE "update" "Update EXIF creation date from filename" \
     --width=500 --height=250)
-  
-  # Check if the user canceled mode selection
-  if [[ -z "$mode" ]]; then
-    echo "Mode selection canceled."
-    exit 0
-  fi
-  
-  echo "Selected mode: $mode"
+
+  [[ -z "$mode" ]] && exit 0
+  echo "[✓] Mode selected: $mode" >&2
+  echo "$mode"
 }
 
-# Prompt user to select the folder using Zenity
-function chooseFolder() {
-  photos_folder=$(zenity --file-selection --directory --title="Select Photos Folder")
+chooseFolder() {
+  echo "[*] Showing folder selection dialog..." >&2
+  local photos_folder=$(zenity \
+    --file-selection \
+    --directory \
+    --confirm-overwrite \
+    --title="Select Photos Folder")
+
+  [[ -z "$photos_folder" ]] && exit 0
+  echo "[✓] Folder selected: $photos_folder" >&2
   echo "$photos_folder"
-  # Check if the user canceled folder selection
-  if [[ -z "$photos_folder" ]]; then
-    echo "Folder selection canceled."
-    exit 0
+}
+
+#####################################
+# Helpers
+#####################################
+
+isSupported() {
+  [[ "$1" =~ \.($SUPPORTED_EXTENSIONS)$ ]]
+}
+
+toExifDate() {
+  # input: YYYY-MM-DD HH:MM:SS
+  echo "${1//-/:}"
+}
+
+#####################################
+# Date extraction
+#####################################
+
+extractDateFromFilename() {
+  local f="$1"
+
+  # Pattern: YYYYMMDD_HHMMSS (e.g., 20210411_102628)
+  if [[ "$f" =~ ([0-9]{8})[_-]([0-9]{6}) ]]; then
+    echo "${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2} \
+${BASH_REMATCH[2]:0:2}:${BASH_REMATCH[2]:2:2}:${BASH_REMATCH[2]:4:2}"
+  # Pattern: YYYY-MM-DD-HHMMSS (e.g., signal-2021-08-08-205245)
+  elif [[ "$f" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
+    echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} \
+${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
+  # Pattern: IMG-YYYYMMDD-* (e.g., IMG-20210104-WA0019)
+  elif [[ "$f" =~ IMG-([0-9]{8})-.*\. ]]; then
+    local datestr="${BASH_REMATCH[1]}"
+    echo "${datestr:0:4}-${datestr:4:2}-${datestr:6:2} 12:00:00"
   fi
-
-  # Count the number of photo files in the folder
-  photo_count=$(find "$photos_folder" -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.m4v" -o -iname "*.mp4" \) | wc -l)
 }
 
-# Go to the selected photos folder
-function goToPhotosFolder() {
-  cd "$photos_folder" || exit
-}
+#####################################
+# UPDATE MODE (filename → EXIF)
+#####################################
 
-# Check if file is a supported media file
-function isSupportedMediaFile() {
-  local file="$1"
-  if [[ -f "$file" && ( "$file" == *.jpg || "$file" == *.jpeg || "$file" == *.png || "$file" == *.m4v || "$file" == *.mp4 ) ]]; then
-    return 0
-  fi
-  return 1
-}
+updateFileDates() {
+  echo "[*] Starting UPDATE mode (filename → EXIF dates)..." >&2
+  local updated=0 skipped=0
 
-# Extract date from filename using various patterns
-function extractDateFromFilename() {
-  local filename="$1"
-  local date_string=""
-  
-  # Pattern 1: YYYYMMDD_HHMMSS (e.g., 20200904_141034.jpg)
-  if [[ "$filename" =~ ([0-9]{8})_([0-9]{6}) ]]; then
-    local date_part="${BASH_REMATCH[1]}"
-    local time_part="${BASH_REMATCH[2]}"
-    date_string="${date_part:0:4}-${date_part:4:2}-${date_part:6:2} ${time_part:0:2}:${time_part:2:2}:${time_part:4:2}"
-  # Pattern 2: IMG-YYYYMMDD-... or VID-YYYYMMDD-... (e.g., IMG-20200905-WA0000.jpeg)
-  elif [[ "$filename" =~ (IMG|VID)-([0-9]{8}) ]]; then
-    local date_part="${BASH_REMATCH[2]}"
-    date_string="${date_part:0:4}-${date_part:4:2}-${date_part:6:2}"
-  # Pattern 3: Pxl YYYYMMDD HHMMSS (e.g., Pxl 20210815 155658793.m4v - captures first 6 digits of time)
-  elif [[ "$filename" =~ [Pp]xl[[:space:]]([0-9]{8})[[:space:]]([0-9]{6,}) ]]; then
-    local date_part="${BASH_REMATCH[1]}"
-    local time_part="${BASH_REMATCH[2]}"
-    date_string="${date_part:0:4}-${date_part:4:2}-${date_part:6:2} ${time_part:0:2}:${time_part:2:2}:${time_part:4:2}"
-  # Pattern 4: signal-YYYY-MM-DD-HHMMSS (e.g., signal-2021-12-27-175024 (4).jpeg)
-  elif [[ "$filename" =~ signal-([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{6}) ]]; then
-    date_string="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} ${BASH_REMATCH[4]:0:2}:${BASH_REMATCH[4]:2:2}:${BASH_REMATCH[4]:4:2}"
-  # Pattern 5: Screenshot_YYYYMMDD-HHMMSS (e.g., Screenshot_20210120-072910_Tabs.jpg)
-  elif [[ "$filename" =~ Screenshot_([0-9]{8})-([0-9]{6}) ]]; then
-    local date_part="${BASH_REMATCH[1]}"
-    local time_part="${BASH_REMATCH[2]}"
-    date_string="${date_part:0:4}-${date_part:4:2}-${date_part:6:2} ${time_part:0:2}:${time_part:2:2}:${time_part:4:2}"
-  # Pattern 6: YYYY-MM-DD HH.MM.SS (e.g., 2014-01-05 20.05.24.jpg)
-  elif [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})[[:space:]]([0-9]{2})\.([0-9]{2})\.([0-9]{2}) ]]; then
-    date_string="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
-  # Pattern 7: IMG_YYYYMMDD_HHMMSS (e.g., IMG_20140114_161758.jpg)
-  elif [[ "$filename" =~ IMG_([0-9]{8})_([0-9]{6}) ]]; then
-    local date_part="${BASH_REMATCH[1]}"
-    local time_part="${BASH_REMATCH[2]}"
-    date_string="${date_part:0:4}-${date_part:4:2}-${date_part:6:2} ${time_part:0:2}:${time_part:2:2}:${time_part:4:2}"
-  fi
-  
-  echo "$date_string"
-}
-
-# Update file creation date from filename
-function updateFileDates() {
-  local updated_count=0
-  local skipped_count=0
-  for file in *; do
-    if isSupportedMediaFile "$file"; then
-      date_string=$(extractDateFromFilename "$file")
-      
-      if [[ -n "$date_string" ]]; then
-        # Update file modification and access time
-        if touch -d "$date_string" "$file" 2>/dev/null; then
-          echo "Updated $file to $date_string"
-          ((updated_count++))
-        else
-          echo "Warning: Failed to update $file - invalid date format: $date_string"
-        fi
-      else
-        echo "Skipped $file - no date pattern found"
-        ((skipped_count++))
-      fi
+  while IFS= read -r -d '' file; do
+    # Remove leading ./ for cleaner output
+    file="${file#./}"
+    
+    if ! isSupported "$file"; then
+      echo "[⊘] Unsupported file type: $file" >&2
+      ((skipped++))
+      continue
     fi
-  done
-  echo "Updated $updated_count file(s), skipped $skipped_count file(s)"
-}
 
-# Loop through each file in the folder
-function renamingFiles() {
-  for file in *; do
-    if isSupportedMediaFile "$file"; then
-      extractFileExtension "$file"
-
-      # Get the creation timestamp of the file
-      creation_timestamp=$(stat -c %Y "$file")
-
-      # Convert the creation timestamp to a formatted date
-      formatted_date=$(date -d @"$creation_timestamp" +"%Y-%m-%d")
-
-      # Generate the new name with the formatted creation date
-      new_name_with_time="$formatted_date.$postfix"
-
-      # Check if the new name already exists
-      if [[ -e "$new_name_with_time" ]]; then
-        index=1
-        while [[ -e "${new_name_with_time%.*}_$index.$postfix" ]]; do
-          ((index++))
-        done
-        new_name_with_time="${new_name_with_time%.*}_$index.$postfix"
-      fi
-
-      # Rename the file
-      mv "$file" "$new_name_with_time"
-      echo "Renamed $file to $new_name_with_time"
+    date_raw=$(extractDateFromFilename "$file")
+    if [[ -z "$date_raw" ]]; then
+      echo "[⊘] Skipped (no date found): $file" >&2
+      ((skipped++))
+      continue
     fi
-  done
+
+    echo "[→] Processing: $file → $date_raw" >&2
+    exif_date=$(toExifDate "$date_raw")
+
+    if [[ "$file" =~ \.(mp4|m4v)$ ]]; then
+      exiftool -overwrite_original \
+        -CreateDate="$exif_date" \
+        -ModifyDate="$exif_date" \
+        -TrackCreateDate="$exif_date" \
+        -TrackModifyDate="$exif_date" \
+        -MediaCreateDate="$exif_date" \
+        -MediaModifyDate="$exif_date" \
+        "$file" >/dev/null 2>&1 || { echo "[!] Error updating $file" >&2; continue; }
+    else
+      exiftool -overwrite_original -AllDates="$exif_date" "$file" >/dev/null 2>&1 || { echo "[!] Error updating $file" >&2; continue; }
+    fi
+
+    touch -d "$date_raw" "$file" || { echo "[!] Error setting file timestamp for $file" >&2; continue; }
+    ((updated++))
+  done < <(find . -maxdepth 1 -type f -print0)
+
+  echo "[✓] Update complete: $updated updated, $skipped skipped" >&2
+  zenity --info --title="Done" --text="Updated: $updated\nSkipped: $skipped"
 }
 
-# Extract the file extension
-function extractFileExtension() {
-  file_extension="${1##*.}"
-  postfix="$file_extension"
+#####################################
+# RENAME MODE (EXIF → filename)
+#####################################
+
+renamingFiles() {
+  echo "[*] Starting RENAME mode (EXIF dates → filenames)..."
+  local renamed=0
+  
+  while IFS= read -r -d '' file; do
+    isSupported "$file" || continue
+
+    ext="${file##*.}"
+    base_date=$(exiftool -s -s -s -DateTimeOriginal "$file" 2>/dev/null)
+
+    if [[ -z "$base_date" ]]; then
+      ts=$(stat -c %Y "$file")
+      base_date=$(date -d @"$ts" +"%Y:%m:%d")
+    else
+      base_date="${base_date%% *}"
+    fi
+
+    new_name="${base_date//:/-}.$ext"
+    [[ "$file" == "./$new_name" ]] && continue
+
+    i=1
+    while [[ -e "$new_name" ]]; do
+      new_name="${base_date//:/-}_$i.$ext"
+      ((i++))
+    done
+
+    echo "[→] Renaming: $file → $new_name"
+    mv "$file" "$new_name"
+    ((renamed++))
+  done < <(find . -maxdepth 1 -type f -print0)
+
+  echo "[✓] Rename complete: $renamed files renamed"
+  zenity --info --title="Done" --text="Renaming complete"
 }
 
-# Display a message when the script is done
-function displayMessage() {
-  local message="$1"
-  zenity --info --title="Script Complete" --text="$message" --width=200 --height=100
-}
+#####################################
+# MAIN
+#####################################
 
-chooseMode
-chooseFolder
-goToPhotosFolder
+echo "========================================"
+echo "   Image Date Renamer"
+echo "========================================"
+echo ""
 
-if [[ "$mode" == "rename" ]]; then
-  renamingFiles
-  displayMessage "Photo renaming complete!"
-elif [[ "$mode" == "update" ]]; then
+mode=$(chooseMode)
+photos_folder=$(chooseFolder)
+echo "[*] Changing directory to: $photos_folder"
+cd "$photos_folder"
+echo "[✓] Directory changed successfully"
+echo ""
+
+shopt -s nocaseglob
+
+if [[ "$mode" == "update" ]]; then
   updateFileDates
-  displayMessage "File date update complete!"
+else
+  renamingFiles
 fi
+
+echo ""
+echo "[✓] Script completed successfully!"
