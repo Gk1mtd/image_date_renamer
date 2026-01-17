@@ -147,7 +147,17 @@ renamingFiles() {
     isSupported "$file" || continue
 
     ext="${file##*.}"
-    base_date=$(exiftool -s -s -s -DateTimeOriginal "$file" 2>/dev/null)
+    
+    # Try different EXIF tags based on file type
+    if [[ "$file" =~ \.(mp4|m4v)$ ]]; then
+      # For videos, try video-specific tags first
+      base_date=$(exiftool -s -s -s -CreateDate "$file" 2>/dev/null)
+      [[ -z "$base_date" ]] && base_date=$(exiftool -s -s -s -MediaCreateDate "$file" 2>/dev/null)
+      [[ -z "$base_date" ]] && base_date=$(exiftool -s -s -s -TrackCreateDate "$file" 2>/dev/null)
+    else
+      # For images, use DateTimeOriginal
+      base_date=$(exiftool -s -s -s -DateTimeOriginal "$file" 2>/dev/null)
+    fi
 
     if [[ -z "$base_date" ]]; then
       ts=$(stat -c %Y "$file")

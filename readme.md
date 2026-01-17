@@ -1,4 +1,4 @@
-# Photo Renaming Script
+# Photo and Video Renaming Script
 
 This script is a Bash shell script that provides two modes for managing photo and video files based on dates. It utilizes Zenity for folder selection and mode selection.
 
@@ -12,12 +12,17 @@ This script is a Bash shell script that provides two modes for managing photo an
 The script offers two operation modes:
 
 ### Mode 1: Rename files by creation date
-- Renames photo and video files based on their file system creation/modification dates
-- Generates filenames in the format: YYYY-MM-DD.ext (e.g., 2020-09-04.jpg)
+- Renames photo and video files based on their EXIF metadata dates
+- For images: uses DateTimeOriginal tag
+- For videos (mp4, m4v): uses CreateDate, MediaCreateDate, or TrackCreateDate tags
+- Falls back to file system modification date if no EXIF data is available
+- Generates filenames in the format: YYYY-MM-DD.ext (e.g., 2020-09-04.jpg, 2020-09-04.mp4)
 - Automatically handles duplicate names by appending an index number
 
 ### Mode 2: Update file creation date from filename
-- Extracts dates from filenames and updates the file's modification/creation timestamp
+- Extracts dates from filenames and updates the file's EXIF metadata and file system timestamp
+- For images: updates AllDates (DateTimeOriginal, CreateDate, ModifyDate)
+- For videos (mp4, m4v): updates CreateDate, ModifyDate, TrackCreateDate, TrackModifyDate, MediaCreateDate, and MediaModifyDate
 - Supports various filename patterns including:
   - `20200904_141034.jpg` (YYYYMMDD_HHMMSS)
   - `IMG-20200905-WA0000.jpeg` (IMG-YYYYMMDD-...)
