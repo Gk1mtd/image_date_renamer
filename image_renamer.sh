@@ -115,6 +115,7 @@ updateFileDates() {
     exif_date=$(toExifDate "$date_raw")
 
     # Check file extension (case-insensitive)
+    # Note: nocaseglob doesn't affect regex patterns, so we convert to lowercase
     ext="${file##*.}"
     ext_lower="${ext,,}"
     
@@ -154,6 +155,7 @@ renamingFiles() {
     ext_lower="${ext,,}"
     
     # Try different EXIF tags based on file type
+    # Note: nocaseglob doesn't affect regex patterns, so we convert to lowercase
     if [[ "$ext_lower" == "mp4" || "$ext_lower" == "m4v" ]]; then
       # For videos, try video-specific tags first
       base_date=$(exiftool -s -s -s -CreateDate "$file" 2>/dev/null)
