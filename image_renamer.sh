@@ -114,7 +114,11 @@ updateFileDates() {
     echo "[→] Processing: $file → $date_raw" >&2
     exif_date=$(toExifDate "$date_raw")
 
-    if [[ "$file" =~ \.(mp4|m4v)$ ]]; then
+    # Check file extension (case-insensitive)
+    ext="${file##*.}"
+    ext_lower="${ext,,}"
+    
+    if [[ "$ext_lower" == "mp4" || "$ext_lower" == "m4v" ]]; then
       exiftool -overwrite_original \
         -CreateDate="$exif_date" \
         -ModifyDate="$exif_date" \
@@ -147,9 +151,10 @@ renamingFiles() {
     isSupported "$file" || continue
 
     ext="${file##*.}"
+    ext_lower="${ext,,}"
     
     # Try different EXIF tags based on file type
-    if [[ "$file" =~ \.(mp4|m4v)$ ]]; then
+    if [[ "$ext_lower" == "mp4" || "$ext_lower" == "m4v" ]]; then
       # For videos, try video-specific tags first
       base_date=$(exiftool -s -s -s -CreateDate "$file" 2>/dev/null)
       [[ -z "$base_date" ]] && base_date=$(exiftool -s -s -s -MediaCreateDate "$file" 2>/dev/null)
