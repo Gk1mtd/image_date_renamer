@@ -54,6 +54,10 @@ extractDateFromFilename() {
   if [[ "$filename" =~ ([0-9]{8})[_-]([0-9]{6}) ]]; then
     echo "${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2} \
 ${BASH_REMATCH[2]:0:2}:${BASH_REMATCH[2]:2:2}:${BASH_REMATCH[2]:4:2}"
+  # Pattern: YYYYMMDD HHMMSS with spaces (e.g., Photo 20160110 155600)
+  elif [[ "$filename" =~ ([0-9]{8})\ ([0-9]{6}) ]]; then
+    echo "${BASH_REMATCH[1]:0:4}-${BASH_REMATCH[1]:4:2}-${BASH_REMATCH[1]:6:2} \
+${BASH_REMATCH[2]:0:2}:${BASH_REMATCH[2]:2:2}:${BASH_REMATCH[2]:4:2}"
   # Pattern: YYYY-MM-DD-HHMMSS (e.g., signal-2021-08-08-205245)
   elif [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
     echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} \
@@ -68,6 +72,10 @@ ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
 ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
   # Pattern: IMG-YYYYMMDD-* (e.g., IMG-20210104-WA0019)
   elif [[ "$filename" =~ IMG-([0-9]{8})-.*\. ]]; then
+    local datestr="${BASH_REMATCH[1]}"
+    echo "${datestr:0:4}-${datestr:4:2}-${datestr:6:2} 12:00:00"
+  # Pattern: *-YYYYMMDD-* (e.g., Vid-20160930-Wa0005)
+  elif [[ "$filename" =~ -([0-9]{8})-.*\. ]]; then
     local datestr="${BASH_REMATCH[1]}"
     echo "${datestr:0:4}-${datestr:4:2}-${datestr:6:2} 12:00:00"
   # Pattern: YYYY_MM_DD_HHMMSS (e.g., 2021_08_08_205245)
