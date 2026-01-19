@@ -78,6 +78,10 @@ ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
   elif [[ "$filename" =~ -([0-9]{8})-.*\. ]]; then
     local datestr="${BASH_REMATCH[1]}"
     echo "${datestr:0:4}-${datestr:4:2}-${datestr:6:2} 12:00:00"
+  # Pattern: YYYYMMDD (at start, e.g., 20191005 Taufe 5-39.mp4)
+  elif [[ "$filename" =~ ^([0-9]{8}) ]]; then
+    local datestr="${BASH_REMATCH[1]}"
+    echo "${datestr:0:4}-${datestr:4:2}-${datestr:6:2} 12:00:00"
   # Pattern: YYYY_MM_DD_HHMMSS (e.g., 2021_08_08_205245)
   elif [[ "$filename" =~ ([0-9]{4})_([0-9]{2})_([0-9]{2})_([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
     echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} \
