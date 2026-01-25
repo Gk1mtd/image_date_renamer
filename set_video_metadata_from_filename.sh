@@ -70,6 +70,10 @@ ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
   elif [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})_([0-9]{2})-([0-9]{2})-([0-9]{2}) ]]; then
     echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} \
 ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
+  # Pattern: *-YYYY-MM-DD-HH-MM-SS* (e.g., signal-2024-05-04-09-23-20-699-2)
+  elif [[ "$filename" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})-([0-9]{2})-([0-9]{2}) ]]; then
+    echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} \
+${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
   # Pattern: IMG-YYYYMMDD-* (e.g., IMG-20210104-WA0019)
   elif [[ "$filename" =~ IMG-([0-9]{8})-.*\. ]]; then
     local datestr="${BASH_REMATCH[1]}"
