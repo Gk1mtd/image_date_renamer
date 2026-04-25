@@ -79,6 +79,10 @@ ${BASH_REMATCH[2]:0:2}:${BASH_REMATCH[2]:2:2}:${BASH_REMATCH[2]:4:2}"
   elif [[ "$f" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
     echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} \
 ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
+  # Pattern: Screenshot_YYYY-MM-DD-HH-MM-SS (e.g., Screenshot_2015-04-03-11-41-08.png)
+  elif [[ "$f" =~ Screenshot_([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})-([0-9]{2})-([0-9]{2})\. ]]; then
+    echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} \
+${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
   # Pattern: IMG-YYYYMMDD-* (e.g., IMG-20210104-WA0019)
   elif [[ "$f" =~ IMG-([0-9]{8})-.*\. ]]; then
     local datestr="${BASH_REMATCH[1]}"
