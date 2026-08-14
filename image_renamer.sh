@@ -83,6 +83,10 @@ ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
   elif [[ "$f" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2})-([0-9]{2})-([0-9]{2})-([0-9]{3})Z ]]; then
     echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} \
 ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
+  # Pattern: YYYY-MM-DD-HH-MM-SS-milliseconds-sequence (e.g., signal-2024-05-12-19-28-55-363-8.jpg)
+  elif [[ "$f" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})-([0-9]{2})-([0-9]{2})-([0-9]{3})-([0-9]+)\. ]]; then
+    echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} \
+${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
   # Pattern: YYYY-MM-DD-HH-MM-SS-milliseconds (e.g., signal-2025-08-08-20-14-21-816.jpg)
   elif [[ "$f" =~ ([0-9]{4})-([0-9]{2})-([0-9]{2})-([0-9]{2})-([0-9]{2})-([0-9]{2})-([0-9]{3})\. ]]; then
     echo "${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} \
