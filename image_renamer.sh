@@ -24,6 +24,7 @@ SUPPORTED_EXTENSIONS="jpg|jpeg|png|mp4|m4v"
 
 chooseMode() {
   echo "[*] Showing mode selection dialog..." >&2
+  local mode
   mode=$(zenity --list \
     --title="Select Mode" \
     --text="Choose operation mode:" \
@@ -33,20 +34,29 @@ chooseMode() {
     FALSE "update" "Update EXIF creation date from filename" \
     --width=500 --height=250)
 
-  [[ -z "$mode" ]] && exit 0
+  local status=$?
+  if [[ $status -ne 0 ]] || [[ -z "$mode" ]]; then
+    return 1
+  fi
+
   echo "[✓] Mode selected: $mode" >&2
   echo "$mode"
 }
 
 chooseFolder() {
   echo "[*] Showing folder selection dialog..." >&2
-  local photos_folder=$(zenity \
+  local photos_folder
+  photos_folder=$(zenity \
     --file-selection \
     --directory \
     --confirm-overwrite \
     --title="Select Photos Folder")
 
-  [[ -z "$photos_folder" ]] && exit 0
+  local status=$?
+  if [[ $status -ne 0 ]] || [[ -z "$photos_folder" ]]; then
+    return 1
+  fi
+
   echo "[✓] Folder selected: $photos_folder" >&2
   echo "$photos_folder"
 }
@@ -199,8 +209,16 @@ echo "   Image Date Renamer"
 echo "========================================"
 echo ""
 
-mode=$(chooseMode)
-photos_folder=$(chooseFolder)
+if ! mode=$(chooseMode); then
+  echo "[*] Operation cancelled by user."
+  exit 0
+fi
+
+if ! photos_folder=$(chooseFolder); then
+  echo "[*] Folder selection cancelled by user."
+  exit 0
+fi
+
 echo "[*] Changing directory to: $photos_folder"
 cd "$photos_folder"
 echo "[✓] Directory changed successfully"
